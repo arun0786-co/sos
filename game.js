@@ -23,9 +23,11 @@ let selectedcell = null;
 let showletterbuttons = false;
 
 let lines = [];   // sos lines made so far {r1, c1, r2, c2, player}
+let moves = [];   // moves of the current game {player, row, col, letter}
 let resulttext = '';
 let message = '';
 let messageuntil = 0;
+let computerwait = 0;
 
 let bluecolor = [40, 90, 220];
 let redcolor = [210, 40, 40];
@@ -56,6 +58,11 @@ function setup() {
 
 function draw() {
   background(240);
+  if (gameactive && iscomputerturn()) {
+    updatecomputer();
+  } else {
+    computerwait = 0;
+  }
   drawtb();
   drawpanel('blue');
   drawpanel('red');
@@ -185,6 +192,14 @@ function drawgameboard() {
   fill(255);
   rect(boardx, boardy, boardpx, boardpx);
 
+  // shade the last move so computer moves are easy to follow
+  if (moves.length > 0) {
+    let last = moves[moves.length - 1];
+    noStroke();
+    fill(255, 240, 170);
+    rect(boardx + last.col * cs, boardy + last.row * cs, cs, cs);
+  }
+
   // grid lines
   stroke(0);
   strokeWeight(2);
@@ -266,7 +281,7 @@ function statustext() {
   if (showletterbuttons) return 'Pick S or O (Esc cancels)';
   if (!gameactive) return resulttext;
   let name = currentplayer === 'blue' ? 'Blue' : 'Red';
-  return name + "'s turn";
+  return name + "'s turn" + (iscomputerturn() ? ' (computer)' : '');
 }
 
 function showmessage(text) {
@@ -371,7 +386,7 @@ function keyPressed() {
 }
 
 function clickcell() {
-  if (!gameactive) return;
+  if (!gameactive || iscomputerturn()) return;
   let cs = cellsize();
   let col = min(floor((mouseX - boardx) / cs), boardsize - 1);
   let row = min(floor((mouseY - boardy) / cs), boardsize - 1);
@@ -418,6 +433,7 @@ function placeletteronboard(row, col, letter) {
   if (!gameactive || board[row][col] !== '') return;
 
   board[row][col] = letter;
+  moves.push({player: currentplayer, row: row, col: col, letter: letter});
 
   let found = checksos(row, col, letter);
   for (let l of found) {
@@ -503,7 +519,73 @@ function resetGame() {
   bscore = 0;
   rscore = 0;
   lines = [];
+  moves = [];
   resulttext = '';
   gameactive = true;
+  computerwait = 0;
   closeletterbuttons();
+}
+
+//============ COMPUTER PLAYER ============
+
+function iscomputerturn() {
+  return (currentplayer === 'blue' ? bplayer : rplayer) === 'computer';
+}
+
+function updatecomputer() {
+  // short pause so computer moves can be followed
+  if (computerwait === 0) {
+    computerwait = millis() + 600;
+  } else if (millis() >= computerwait) {
+    computerwait = 0;
+    computermove();
+  }
+}
+
+// take the move that makes the most sos, otherwise the move that leaves the
+// opponent the fewest sos to make
+function computermove() {
+  let scoring = [];
+  let bestgain = 0;
+  let safest = [];
+  let leastrisk = Infinity;
+  for (let row = 0; row < boardsize; row++) {
+    for (let col = 0; col < boardsize; col++) {
+      if (board[row][col] !== '') continue;
+      for (let letter of ['S', 'O']) {
+        let move = {row: row, col: col, letter: letter};
+        let gain = checksos(row, col, letter).length;
+        if (gain > 0) {
+          if (gain > bestgain) {
+            bestgain = gain;
+            scoring = [];
+          }
+          if (gain === bestgain) scoring.push(move);
+        } else if (bestgain === 0) {
+          board[row][col] = letter;
+          let risk = countopenings();
+          board[row][col] = '';
+          if (risk < leastrisk) {
+            leastrisk = risk;
+            safest = [];
+          }
+          if (risk === leastrisk) safest.push(move);
+        }
+      }
+    }
+  }
+  let move = random(scoring.length > 0 ? scoring : safest);
+  placeletteronboard(move.row, move.col, move.letter);
+}
+
+// how many sos the next player could make with one letter
+function countopenings() {
+  let count = 0;
+  for (let row = 0; row < boardsize; row++) {
+    for (let col = 0; col < boardsize; col++) {
+      if (board[row][col] !== '') continue;
+      count += checksos(row, col, 'S').length + checksos(row, col, 'O').length;
+    }
+  }
+  return count;
 }
