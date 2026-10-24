@@ -1,25 +1,25 @@
-//ui layout 
-let lpwidth = 150;// left panel width
-let rpwidth = 150;// right panel width
-let tbheight = 100;// top panel height
-let bbheight = 80;// bottom panel height
+//============ GAME VARIABLES ============
+let lpwidth = 150;
+let rpwidth = 150;
+let tbheight = 100;
+let bbheight = 80;
 
-// player info
 let bscore = 0;
 let rscore = 0;
-let bplayer = 'human';  // human or computer
-let rplayer = 'human';   //   human or computer
+let bplayer = 'human';
+let rplayer = 'human';
 
-
-let selectedmode = 'simple';  //simple or general
-let gameactive = false;  
-
+let selectedmode = 'simple';
+let gameactive = false;
 let boardsize = 7;
 let board = [];
-currentplayer = 'blue'; // blue or red
+let currentplayer = 'blue';
+let selectedcell = null;
+let showletterbuttons = false;
 
 function intializeboard() {
   for (let i = 0; i < boardsize; i++) {
+    board[i] = [];  // Create row array first!
     for (let j = 0; j < boardsize; j++) {
       board[i][j]= '';
     }
@@ -27,10 +27,13 @@ function intializeboard() {
 } 
 
 function setup() { 
+  console.log("Setup called!");
   let canvaswidth = lpwidth + 700 +rpwidth;  // 1000
   let canvasheight = tbheight + 700 + bbheight;    // 800
+  console.log(`Creating canvas: ${canvaswidth} x ${canvasheight}`);
   createCanvas(canvaswidth, canvasheight);  
   intializeboard();
+  console.log("Setup complete!");
 }
 
 function draw() {
@@ -40,7 +43,30 @@ function draw() {
   drawgameboard();
   drawrp();
   drawbb();
+  if(showletterbuttons&& selectedcell){
+    drawletterselectionbuttons();
+  }
 }
+function drawletterselectionbuttons() {
+  // draw semitransparent overlay
+  fill(0, 0, 0, 100);
+  rect(0, 0, width, height);
+  // s button
+  fill(100, 200, 255);
+  rect(width/2 - 60, height/2 - 50, 60, 60);
+  fill(0);
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text('S', width/2 - 40, height/2 - 20);
+
+  // o button
+  fill(100, 200, 255);
+  rect(width/2 + 10, height/2 - 50, 60, 60);
+  fill(0);
+  text('O', width/2 + 40, height/2 - 20);
+}
+
+
 
 function drawtb() {
   fill(200);
@@ -276,10 +302,9 @@ function mousePressed() {
       let col = floor((mouseX - boardx) / cellsize);
       let row = floor((mouseY - boardy) / cellsize);
 
-      let choice = prompt("Enter 'S' or 'O':").toUpperCase();
-      if (choice === 'S' || choice === 'O') {
-         placeletteronboard(row, col, choice);
-      }}
+      selectedcell = {row: row, col: col};
+      showletterbuttons = true;
+   }
 
   //handling other button clicks (mode selection, player type, new game, etc.) would go here
   if (mouseX > 250 && mouseX < 290 && mouseY > 50 && mouseY < 70) {
@@ -303,6 +328,20 @@ function mousePressed() {
     resetGame();
   }
 
+  if (showletterbuttons) {
+    if (mouseX > width/2 - 70 && mouseX < width/2 - 10 &&
+      mouseY > height/2 - 50 && mouseY < height/2 + 10) {
+      placeletteronboard(selectedcell.row, selectedcell.col, 'S');
+      showletterbuttons = false;
+      selectedcell = null;
+    }
+    else if (mouseX > width/2 + 10 && mouseX < width/2 + 70 &&
+             mouseY > height/2 - 50 && mouseY < height/2 + 10) {
+      placeletteronboard(selectedcell.row, selectedcell.col, 'O');
+      showletterbuttons = false;
+      selectedcell = null;
+    }
+  }
 }
 
 
@@ -324,12 +363,12 @@ function checksos(row, col, letter) {
   }
   
   // Check diagonals 
-  if(row > 0 && row < boardsize-1 && ol > 0 && col < boardsize-1 && 
+  if(row > 0 && row < boardsize-1 && col > 0 && col < boardsize-1 &&
     board[row-1][col-1] === 'S' && board[row+1][col+1] === 'S'){
     score++;
   }
  
-  if(row > 0 && row < boardsize-1 && ol > 0 && col < boardsize-1 && 
+  if(row > 0 && row < boardsize-1 && col > 0 && col < boardsize-1 &&
     board[row+1][col-1] === 'S' && board[row-1][col+1] === 'S'){
 
     score++;
@@ -347,7 +386,3 @@ function resetGame() {
   gameactive = true;
   selectedmode = 'simple';
 }
-
-
-
-
