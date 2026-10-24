@@ -29,6 +29,13 @@ let message = '';
 let messageuntil = 0;
 let computerwait = 0;
 
+// record and replay
+let recording = false;
+let recordedgame = null;
+let replaying = false;
+let replaystep = 0;
+let replaynext = 0;
+
 let bluecolor = [40, 90, 220];
 let redcolor = [210, 40, 40];
 
@@ -53,12 +60,15 @@ function intializeboard() {
 
 function setup() {
   createCanvas(lpwidth + 700 + rpwidth, tbheight + 700 + bbheight);  // 1000 x 880
+  loadrecordedgame();
   resetGame();
 }
 
 function draw() {
   background(240);
-  if (gameactive && iscomputerturn()) {
+  if (replaying) {
+    updatereplay();
+  } else if (gameactive && iscomputerturn()) {
     updatecomputer();
   } else {
     computerwait = 0;
@@ -192,7 +202,7 @@ function drawgameboard() {
   fill(255);
   rect(boardx, boardy, boardpx, boardpx);
 
-  // shade the last move so computer moves are easy to follow
+  // shade the last move so computer and replay moves are easy to follow
   if (moves.length > 0) {
     let last = moves[moves.length - 1];
     noStroke();
@@ -238,8 +248,8 @@ function drawbb() {
   rect(0, y, width, bbheight);
 
   textSize(14);
-  drawbutton(recordbtn, 'Record Game', [150]);
-  drawbutton(replaybtn, 'Replay', [150]);
+  drawbutton(recordbtn, recording ? 'Recording: On' : 'Record Game', recording ? [240, 120, 120] : [150]);
+  drawbutton(replaybtn, 'Replay', recordedgame ? [150] : [185]);
   drawbutton(newgamebtn, 'New Game', [100, 200, 100]);
 
   // status
@@ -279,6 +289,7 @@ function drawletterselectionbuttons() {
 
 function statustext() {
   if (showletterbuttons) return 'Pick S or O (Esc cancels)';
+  if (replaying) return 'Replay: move ' + replaystep + ' of ' + recordedgame.moves.length;
   if (!gameactive) return resulttext;
   let name = currentplayer === 'blue' ? 'Blue' : 'Red';
   return name + "'s turn" + (iscomputerturn() ? ' (computer)' : '');
@@ -367,6 +378,10 @@ function mousePressed() {
     rplayer = 'computer';
   } else if (inrect(humanbtn('red'))) {
     rplayer = 'human';
+  } else if (inrect(recordbtn)) {
+    togglerecording();
+  } else if (inrect(replaybtn)) {
+    startreplay();
   } else if (inrect(newgamebtn)) {
     resetGame();
   } else if (inrect({x: boardx, y: boardy, w: boardpx, h: boardpx})) {
@@ -386,7 +401,7 @@ function keyPressed() {
 }
 
 function clickcell() {
-  if (!gameactive || iscomputerturn()) return;
+  if (!gameactive || replaying || iscomputerturn()) return;
   let cs = cellsize();
   let col = min(floor((mouseX - boardx) / cs), boardsize - 1);
   let row = min(floor((mouseY - boardy) / cs), boardsize - 1);
@@ -511,6 +526,7 @@ function boardfull() {
 function endgame(text) {
   gameactive = false;
   resulttext = text;
+  if (recording && !replaying) savegame();
 }
 
 function resetGame() {
@@ -522,6 +538,7 @@ function resetGame() {
   moves = [];
   resulttext = '';
   gameactive = true;
+  replaying = false;
   computerwait = 0;
   closeletterbuttons();
 }
@@ -588,4 +605,58 @@ function countopenings() {
     }
   }
   return count;
+}
+
+//============ RECORD AND REPLAY ============
+
+function togglerecording() {
+  recording = !recording;
+  if (!recording) {
+    showmessage('Recording off');
+  } else if (!gameactive && !replaying && moves.length > 0) {
+    savegame();
+  } else {
+    showmessage('Recording on, the game is saved when it ends');
+  }
+}
+
+function savegame() {
+  recordedgame = {mode: selectedmode, size: boardsize, moves: moves.slice()};
+  try {
+    localStorage.setItem('sos-recorded-game', JSON.stringify(recordedgame));
+  } catch (e) {
+    // storage blocked, the game is still kept until the page is closed
+  }
+  showmessage('Game saved, press Replay to watch it');
+}
+
+function loadrecordedgame() {
+  try {
+    let saved = localStorage.getItem('sos-recorded-game');
+    if (saved) recordedgame = JSON.parse(saved);
+  } catch (e) {
+    recordedgame = null;
+  }
+}
+
+function startreplay() {
+  if (!recordedgame) {
+    showmessage('No recorded game yet, turn on Record first');
+    return;
+  }
+  selectedmode = recordedgame.mode;
+  boardsize = recordedgame.size;
+  resetGame();
+  replaying = true;
+  replaystep = 0;
+  replaynext = millis() + 500;
+}
+
+function updatereplay() {
+  if (millis() < replaynext) return;
+  let m = recordedgame.moves[replaystep];
+  placeletteronboard(m.row, m.col, m.letter);
+  replaystep++;
+  replaynext = millis() + 700;
+  if (replaystep >= recordedgame.moves.length) replaying = false;
 }
