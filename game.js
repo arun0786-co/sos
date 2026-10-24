@@ -22,6 +22,11 @@ let currentplayer = 'blue';
 let selectedcell = null;
 let showletterbuttons = false;
 
+let lines = [];   // sos lines made so far {r1, c1, r2, c2, player}
+
+let bluecolor = [40, 90, 220];
+let redcolor = [210, 40, 40];
+
 // clickable areas
 let simplebtn = {x: 168, y: 40, w: 135, h: 30};
 let generalbtn = {x: 323, y: 40, w: 145, h: 30};
@@ -174,6 +179,14 @@ function drawgameboard() {
         text(board[i][j], cellcx(j), cellcy(i));
       }
     }
+  }
+
+  // sos lines in the color of the player who made them
+  strokeWeight(max(3, cs / 14));
+  for (let l of lines) {
+    let col = l.player === 'blue' ? bluecolor : redcolor;
+    stroke(col[0], col[1], col[2], 170);
+    line(cellcx(l.c1), cellcy(l.r1), cellcx(l.c2), cellcy(l.r2));
   }
 }
 
@@ -345,48 +358,51 @@ function placeletteronboard(row, col, letter) {
 
   board[row][col] = letter;
 
-  let score = checksos(row, col, letter);
-
+  let found = checksos(row, col, letter);
+  for (let l of found) {
+    l.player = currentplayer;
+    lines.push(l);
+  }
   if (currentplayer === 'blue') {
-    bscore += score;
+    bscore += found.length;
   } else {
-    rscore += score;
+    rscore += found.length;
   }
 
-  if (selectedmode === 'general' && score > 0) {
+  if (selectedmode === 'general' && found.length > 0) {
   } else {
     switchplayer();
   }
 }
 
+// returns the sos lines made by placing letter at (row, col)
 function checksos(row, col, letter) {
-  if (letter !== 'O') return 0;
-
-  let score = 0;
-
-  //check horizontal
-  if (col > 0 && col < boardsize-1 &&
-    board[row][col-1] === 'S' && board[row][col+1] === 'S') {
-    score++;
+  let found = [];
+  if (letter === 'O') {
+    // o in the middle: s on both sides along each of the 4 axes
+    for (let [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+      if (getcell(row - dr, col - dc) === 'S' && getcell(row + dr, col + dc) === 'S') {
+        found.push({r1: row - dr, c1: col - dc, r2: row + dr, c2: col + dc});
+      }
+    }
+  } else {
+    // s at one end: o then s in each of the 8 directions
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        if (getcell(row + dr, col + dc) === 'O' && getcell(row + 2 * dr, col + 2 * dc) === 'S') {
+          found.push({r1: row, c1: col, r2: row + 2 * dr, c2: col + 2 * dc});
+        }
+      }
+    }
   }
+  return found;
+}
 
-  //check vertical
-  if (row > 0 && row < boardsize-1 &&
-    board[row-1][col] === 'S' && board[row+1][col] === 'S') {
-    score++;
-  }
-
-  // Check diagonals
-  if(row > 0 && row < boardsize-1 && col > 0 && col < boardsize-1 &&
-    board[row-1][col-1] === 'S' && board[row+1][col+1] === 'S'){
-    score++;
-  }
-
-  if(row > 0 && row < boardsize-1 && col > 0 && col < boardsize-1 &&
-    board[row+1][col-1] === 'S' && board[row-1][col+1] === 'S'){
-    score++;
-  }
-  return score;
+// '' for cells off the board
+function getcell(row, col) {
+  if (row < 0 || row >= boardsize || col < 0 || col >= boardsize) return '';
+  return board[row][col];
 }
 
 function resetGame() {
@@ -394,6 +410,7 @@ function resetGame() {
   currentplayer = 'blue';
   bscore = 0;
   rscore = 0;
+  lines = [];
   gameactive = true;
   closeletterbuttons();
 }
