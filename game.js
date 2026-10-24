@@ -33,6 +33,8 @@ let redcolor = [210, 40, 40];
 // clickable areas
 let simplebtn = {x: 168, y: 40, w: 135, h: 30};
 let generalbtn = {x: 323, y: 40, w: 145, h: 30};
+let minusbtn = {x: 620, y: 40, w: 30, h: 30};
+let plusbtn = {x: 720, y: 40, w: 30, h: 30};
 let recordbtn = {x: 100, y: tbheight + 720, w: 130, h: 40};
 let replaybtn = {x: 270, y: tbheight + 720, w: 130, h: 40};
 let newgamebtn = {x: 440, y: tbheight + 720, w: 130, h: 40};
@@ -88,8 +90,14 @@ function drawtb() {
   fill(0);
   textAlign(LEFT, CENTER);
   text('Board size', 520, 55);
+  drawbutton(minusbtn, '-', [230]);
+  drawbutton(plusbtn, '+', [230]);
+  noStroke();
+  fill(0);
   textAlign(CENTER, CENTER);
   text(boardsize + ' x ' + boardsize, 685, 55);
+  textSize(14);
+  text('(3-9)', 785, 55);
 }
 
 function drawradio(x, y, label, on) {
@@ -332,6 +340,10 @@ function mousePressed() {
     setmode('simple');
   } else if (inrect(generalbtn)) {
     setmode('general');
+  } else if (inrect(minusbtn)) {
+    setboardsize(boardsize - 1);
+  } else if (inrect(plusbtn)) {
+    setboardsize(boardsize + 1);
   } else if (inrect(computerbtn('blue'))) {
     bplayer = 'computer';
   } else if (inrect(humanbtn('blue'))) {
@@ -382,6 +394,13 @@ function closeletterbuttons() {
 function setmode(mode) {
   if (mode === selectedmode) return;
   selectedmode = mode;
+  resetGame();
+}
+
+function setboardsize(n) {
+  n = constrain(n, 3, 9);
+  if (n === boardsize) return;
+  boardsize = n;
   resetGame();
 }
 
