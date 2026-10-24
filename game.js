@@ -60,8 +60,21 @@ function intializeboard() {
 
 function setup() {
   createCanvas(lpwidth + 700 + rpwidth, tbheight + 700 + bbheight);  // 1000 x 880
+  fitcanvas();
   loadrecordedgame();
   resetGame();
+}
+
+// shrink the canvas to fit small windows, p5 maps mouse positions back to canvas pixels
+function fitcanvas() {
+  let s = min(1, windowWidth / width, windowHeight / height);
+  let c = document.querySelector('canvas');
+  c.style.width = width * s + 'px';
+  c.style.height = height * s + 'px';
+}
+
+function windowResized() {
+  fitcanvas();
 }
 
 function draw() {
