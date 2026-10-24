@@ -23,6 +23,9 @@ let selectedcell = null;
 let showletterbuttons = false;
 
 let lines = [];   // sos lines made so far {r1, c1, r2, c2, player}
+let resulttext = '';
+let message = '';
+let messageuntil = 0;
 
 let bluecolor = [40, 90, 220];
 let redcolor = [210, 40, 40];
@@ -131,6 +134,15 @@ function drawpanel(player) {
   }
   rect(x, tbheight, w, 700);
 
+  // white border on the player whose turn it is
+  let myturn = gameactive && currentplayer === player;
+  if (myturn) {
+    noFill();
+    stroke(255);
+    strokeWeight(5);
+    rect(x + 4, tbheight + 4, w - 8, 692);
+  }
+
   noStroke();
   fill(0);
   textAlign(CENTER, CENTER);
@@ -150,6 +162,11 @@ function drawpanel(player) {
   text('Score', mid, tbheight + 160);
   textSize(40);
   text(player === 'blue' ? bscore : rscore, mid, tbheight + 200);
+
+  if (myturn) {
+    textSize(16);
+    text('Your turn', mid, tbheight + 260);
+  }
 }
 
 function drawgameboard() {
@@ -201,6 +218,18 @@ function drawbb() {
   drawbutton(recordbtn, 'Record Game', [150]);
   drawbutton(replaybtn, 'Replay', [150]);
   drawbutton(newgamebtn, 'New Game', [100, 200, 100]);
+
+  // status
+  noStroke();
+  fill(0);
+  textAlign(CENTER, CENTER);
+  textSize(20);
+  text(statustext(), 790, y + 30);
+  if (millis() < messageuntil) {
+    fill(60);
+    textSize(13);
+    text(message, 790, y + 60);
+  }
 }
 
 function drawletterselectionbuttons() {
@@ -223,6 +252,18 @@ function drawletterselectionbuttons() {
   textSize(32);
   drawbutton(b.s, 'S', [100, 200, 255]);
   drawbutton(b.o, 'O', [100, 200, 255]);
+}
+
+function statustext() {
+  if (showletterbuttons) return 'Pick S or O (Esc cancels)';
+  if (!gameactive) return resulttext;
+  let name = currentplayer === 'blue' ? 'Blue' : 'Red';
+  return name + "'s turn";
+}
+
+function showmessage(text) {
+  message = text;
+  messageuntil = millis() + 3000;
 }
 
 //============ LAYOUT HELPERS ============
@@ -318,6 +359,7 @@ function keyPressed() {
 }
 
 function clickcell() {
+  if (!gameactive) return;
   let cs = cellsize();
   let col = min(floor((mouseX - boardx) / cs), boardsize - 1);
   let row = min(floor((mouseY - boardy) / cs), boardsize - 1);
@@ -354,7 +396,7 @@ function switchplayer() {
 }
 
 function placeletteronboard(row, col, letter) {
-  if (board[row][col] !== '') return;
+  if (!gameactive || board[row][col] !== '') return;
 
   board[row][col] = letter;
 
@@ -369,9 +411,31 @@ function placeletteronboard(row, col, letter) {
     rscore += found.length;
   }
 
-  if (selectedmode === 'general' && found.length > 0) {
+  let name = currentplayer === 'blue' ? 'Blue' : 'Red';
+  if (selectedmode === 'simple') {
+    // first sos wins
+    if (found.length > 0) {
+      endgame(name + ' wins!');
+    } else if (boardfull()) {
+      endgame('Draw');
+    } else {
+      switchplayer();
+    }
   } else {
-    switchplayer();
+    // most sos when the board is full wins, scoring earns another turn
+    if (boardfull()) {
+      if (bscore > rscore) {
+        endgame('Blue wins!');
+      } else if (rscore > bscore) {
+        endgame('Red wins!');
+      } else {
+        endgame('Draw');
+      }
+    } else if (found.length > 0) {
+      showmessage(name + ' made ' + found.length + ' SOS and goes again');
+    } else {
+      switchplayer();
+    }
   }
 }
 
@@ -405,12 +469,22 @@ function getcell(row, col) {
   return board[row][col];
 }
 
+function boardfull() {
+  return board.every(row => row.every(cell => cell !== ''));
+}
+
+function endgame(text) {
+  gameactive = false;
+  resulttext = text;
+}
+
 function resetGame() {
   intializeboard();
   currentplayer = 'blue';
   bscore = 0;
   rscore = 0;
   lines = [];
+  resulttext = '';
   gameactive = true;
   closeletterbuttons();
 }
